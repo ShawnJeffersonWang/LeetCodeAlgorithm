@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.22)
+project(data_structure)
+set(CMAKE_CXX_STANDARD 11)
+add_executable(kmp kmp.cc)
+add_executable(minSubArray minSubArray.cc)
+add_executable(CharacterCount CharacterCount.c)
+add_executable(a a.c)
+add_executable(evalRPN evalRPN.cpp)
