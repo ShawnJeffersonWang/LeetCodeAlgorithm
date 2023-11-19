@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
+
 #define N 54
 
 typedef struct node {
     char ch;
     int fre;
-    struct node *lchild, *rchild;
+    struct node *lchild;
+    struct node *rchild;
 } Node;
 
 int charToInt(char c) {
@@ -39,11 +40,11 @@ void getFrequence(char *s, int *w) {
     }
 }
 
-void __build_tree(Node **tree, int *w) {
-    int treeIndex = 0;
+void init_tree(Node **tree, int *w, int *treeSize) {
     for (int i = 0; i < N; i++) {
         if (w[i] == 0) continue;
-        tree[treeIndex++] = getNode(intToChar(i), w[i]);
+        tree[*treeSize] = getNode(intToChar(i), w[i]);
+        (*treeSize)++;
     }
 }
 
@@ -57,68 +58,94 @@ int getMinFreqNode(char c, Node **tree, int size) {
     return pos;
 }
 
-void build_tree(Node **tree, int *w) {
-    __build_tree(tree, w);
-    int n = 0;
-    while (tree[n] != NULL) {
-        n++;
-    }
+void build_tree(Node **tree, int *w, int *treeSize) {
+    init_tree(tree, w, treeSize);
+    int n = *treeSize;
     for (int i = 1; i < n; i++) {
         int pos1 = getMinFreqNode('=', tree, n - i);
         int pos2 = getMinFreqNode(tree[pos1]->ch, tree, n - i);
         Node *node = getNode(tree[pos1]->ch, tree[pos1]->fre + tree[pos2]->fre);
         node->lchild = tree[pos1];
         node->rchild = tree[pos2];
-        for (int j = min(pos1, pos2); j < max(pos1, pos2) - 1; j++) {
+        for (int j = pos1 < pos2 ? pos1 : pos2; j < (pos1 < pos2 ? pos2 - 1 : pos1 - 1); j++) {
             tree[j] = tree[j + 1];
         }
-        for (int j = max(pos1, pos2); j < n - i; j++) {
+        for (int j = (pos1 < pos2 ? pos2 : pos1); j < n - i; j++) {
             tree[j - 1] = tree[j + 1];
         }
         tree[n - i - 1] = node;
     }
 }
 
-void getEncode(Node *node, char *str, char **encode, char **m) {
+void getEncode(Node *node, char *str, char **encode, char **keys, char *values, int *encodeSize, int *mSize) {
     if (node->lchild == NULL && node->rchild == NULL) {
-        strcpy(encode[charToInt(node->ch)], str);
-        strcpy(m[str], &(node->ch));
+        int index = charToInt(node->ch);
+        encode[index] = (char *) malloc((*encodeSize + 1) * sizeof(char));
+        strcpy(encode[index], str);
+        keys[*mSize] = (char *) malloc((*encodeSize + 1) * sizeof(char));
+        strcpy(keys[*mSize], str);
+        values[*mSize] = node->ch;
+        (*encodeSize)++;
+        (*mSize)++;
     }
     if (node->lchild != NULL) {
-        char str0[100];
-        strcpy(str0, str);
-        strcat(str0, "0");
-        getEncode(node->lchild, str0, encode, m);
+        char *newStr = (char *) malloc((*encodeSize + 2) * sizeof(char));
+        strcpy(newStr, str);
+        newStr[*encodeSize] = '0';
+        newStr[*encodeSize + 1] = '\0';
+        getEncode(node->lchild, newStr, encode, keys, values, encodeSize, mSize);
+        free(newStr);
     }
     if (node->rchild != NULL) {
-        char str1[100];
-        strcpy(str1, str);
-        strcat(str1, "1");
-        getEncode(node->rchild, str1, encode, m);
+        char *newStr = (char *) malloc((*encodeSize + 2) * sizeof(char));
+        strcpy(newStr, str);
+        newStr[*encodeSize] = '1';
+        newStr[*encodeSize + 1] = '\0';
+        getEncode(node->rchild, newStr, encode, keys, values, encodeSize, mSize);
+        free(newStr);
     }
 }
 
-char *stringToEncode(char *s, char **encode) {
-    char *ans = (char *) malloc(strlen(s) * sizeof(char) * 10);
+char *stringToEncode(Node *node, char *s, char **encode) {
+    int len = strlen(s);
+    char *ans = (char *) malloc(len * N * sizeof(char));
     int index = 0;
-    for (int i = 0; s[i] != '\0'; i++) {
-        int charIndex = charToInt(s[i]);
-        strcat(ans, encode[charIndex]);
+    for (int i = 0; i < len; i++) {
+        int ch = charToInt(s[i]);
+        char *code = encode[ch];
+        int codeLen = strlen(code);
+        for (int j = 0; j < codeLen; j++) {
+            ans[index++] = code[j];
+        }
     }
+    ans[index] = '\0';
     return ans;
 }
 
-char *encodeToString(char *s, char **m) {
-    char *str = (char *) malloc(strlen(s) * sizeof(char));
-    char *ans = (char *) malloc(strlen(s) * sizeof(char));
+char *encodeToString(char *s, char **keys, char *values, int mSize) {
+    int len = strlen(s);
+    char *ans = (char *) malloc(len * sizeof(char));
     int index = 0;
-    for (int i = 0; s[i] != '\0'; i++) {
-        str[index++] = s[i];
-        str[index] = '\0';
-        if (strcmp(m[str], "") == 0) continue;
-        strcat(ans, m[str]);
-        index = 0;
+    char *str = (char *) malloc((len + 1) * sizeof(char));
+    int strIndex = 0;
+    for (int i = 0; i < len; i++) {
+        str[strIndex++] = s[i];
+        str[strIndex] = '\0';
+        int found = 0;
+        for (int j = 0; j < mSize; j++) {
+            if (strcmp(keys[j], str) == 0) {
+                ans[index++] = values[j];
+                strIndex = 0;
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            continue;
+        }
     }
+    ans[index] = '\0';
+    free(str);
     return ans;
 }
 
@@ -136,20 +163,33 @@ int main() {
     char s[1000];
     int w[N] = {0};
     Node *tree[N];
+    int treeSize = 0;
     char *encode[N];
-    char *m[100];
-    for (int i = 0; i < 100; i++) {
-        m[i] = (char *) malloc(sizeof(char));
-        strcpy(m[i], "");
-    }
+    char *keys[N];
+    char values[N];
+    int encodeSize = 0;
+    int mSize = 0;
     fgets(s, sizeof(s), stdin);
-    s[strlen(s) - 1] = '\0';
+    s[strcspn(s, "\n")] = '\0';
     getFrequence(s, w);
-    build_tree(tree, w);
-    getEncode(tree[0], "", encode, m);
-    printf("%s\n", stringToEncode(s, encode));
+    build_tree(tree, w, &treeSize);
+    getEncode(tree[0], "", encode, keys, values, &encodeSize, &mSize);
+    char *encodedString = stringToEncode(tree[0], s, encode);
+    printf("%s\n", encodedString);
     scanf("%s", s);
-    printf("%s\n", encodeToString(s, m));
+    char *decodedString = encodeToString(s, keys, values, mSize);
+    printf("%s\n", decodedString);
     printf("%.2lf\n", getAverageEncodeSize(encode, w));
+
+    // Free allocated memory
+    for (int i = 0; i < encodeSize; i++) {
+        free(encode[i]);
+    }
+    for (int i = 0; i < mSize; i++) {
+        free(keys[i]);
+    }
+    free(encodedString);
+    free(decodedString);
+
     return 0;
 }
